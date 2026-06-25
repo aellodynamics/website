@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Aello Dynamics — Electrical Observability for UAVs</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter+Tight:wght@400;500;600&family=Share+Tech+Mono&display=swap');
+
+  :root{
+    --bg:#080A0E; --bg2:#0B0E13; --surf:#0E1218; --surfLit:#141A22;
+    --edge:#1E2630; --edgeLit:#2E3946; --rule:#161C24;
+    --ink:#E8EDF3; --dim:#8A99A8; --faint:#54616F;
+    --amber:#FF5A2C; --amberSoft:rgba(255,90,44,0.12); --green:#3DF5A0; --cyan:#48C9E8;
+    --disp:'Space Grotesk',sans-serif; --body:'Inter Tight',system-ui,sans-serif; --mono:'Share Tech Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5;
+    -webkit-font-smoothing:antialiased;overflow-x:hidden}
+  a{color:inherit;text-decoration:none}
+  ::selection{background:var(--amber);color:#000}
+
+  .wrap{max-width:1320px;margin:0 auto;padding:0 32px}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--faint)}
+  .amber{color:var(--amber)}
+
+  /* ---- top nav ---- */
+  nav{position:fixed;top:0;left:0;right:0;z-index:100;backdrop-filter:blur(14px);
+    background:rgba(8,10,14,0.72);border-bottom:1px solid var(--edge)}
+  .nav-in{max-width:1320px;margin:0 auto;padding:18px 32px;display:flex;align-items:center;justify-content:space-between}
+  .brand{display:flex;align-items:center;gap:11px;font-family:var(--disp);font-weight:700;font-size:19px;letter-spacing:.04em}
+  .brand .mark{width:30px;height:30px;border:1.5px solid var(--ink);border-radius:50%;display:grid;place-items:center;
+    font-size:14px;position:relative}
+  .brand .mark::after{content:"";position:absolute;width:5px;height:5px;background:var(--amber);border-radius:50%;
+    box-shadow:0 0 8px var(--amber)}
+  .nav-links{display:flex;gap:38px;font-size:13px;letter-spacing:.04em;color:var(--dim)}
+  .nav-links a{transition:color .15s;position:relative;padding:4px 0}
+  .nav-links a:hover{color:var(--ink)}
+  .nav-cta{display:flex;align-items:center;gap:10px}
+  .pill{border:1px solid var(--edgeLit);border-radius:40px;padding:9px 18px;font-size:13px;display:flex;align-items:center;gap:8px;
+    transition:.18s;cursor:pointer}
+  .pill:hover{border-color:var(--amber);color:var(--ink)}
+  .pill .dot{width:6px;height:6px;border-radius:50%;background:var(--amber);box-shadow:0 0 8px var(--amber)}
+
+  /* ---- hero ---- */
+  .hero{padding-top:148px;padding-bottom:90px;position:relative;
+    border-bottom:1px solid var(--edge)}
+  .hero-grid{display:grid;grid-template-columns:1.05fr 1.2fr 0.9fr;gap:0;align-items:stretch;min-height:560px}
+  .hero-col{padding:0 38px;position:relative}
+  .hero-col:not(:last-child){border-right:1px solid var(--edge)}
+  .hero-col:first-child{padding-left:0}
+  .hero-col:last-child{padding-right:0}
+
+  .tag-row{display:flex;align-items:center;gap:12px;margin-bottom:30px}
+  .tag-row .bar{width:34px;height:1px;background:var(--faint)}
+  h1{font-family:var(--disp);font-weight:600;font-size:clamp(38px,4.4vw,68px);line-height:1.02;letter-spacing:-.02em}
+  .hero-sub{margin-top:26px;color:var(--dim);font-size:16.5px;max-width:380px;line-height:1.6}
+  .hero-actions{margin-top:38px;display:flex;align-items:center;gap:18px}
+  .btn-primary{background:var(--ink);color:#000;font-family:var(--body);font-weight:600;font-size:14.5px;
+    padding:15px 28px;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:12px;transition:.18s;
+    position:relative;clip-path:polygon(0 0,100% 0,100% 70%,calc(100% - 14px) 100%,0 100%)}
+  .btn-primary:hover{background:var(--amber);color:#000;transform:translateY(-1px)}
+  .btn-ghost{font-size:14px;color:var(--dim);display:inline-flex;align-items:center;gap:9px;cursor:pointer;transition:.15s}
+  .btn-ghost:hover{color:var(--ink)}
+  .btn-ghost .arrow{font-family:var(--mono)}
+
+  /* center signature */
+  .signature{display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;height:100%}
+  .sig-label{position:absolute;top:8px;left:50%;transform:translateX(-50%);white-space:nowrap}
+  .sig-readout{position:absolute;bottom:6px;left:50%;transform:translateX(-50%);display:flex;gap:26px;
+    font-family:var(--mono);font-size:11px;color:var(--faint);letter-spacing:.08em}
+  .sig-readout b{color:var(--ink);font-weight:400}
+  .sig-readout .live{color:var(--amber)}
+
+  /* right rail cards */
+  .rail{display:flex;flex-direction:column;height:100%;justify-content:space-between;gap:24px}
+  .card{position:relative}
+  .card .ico{width:34px;height:34px;display:grid;place-items:center;margin-bottom:16px;border:1px solid var(--edge)}
+  .card .ico.fill{background:var(--amber);border-color:var(--amber)}
+  .card h3{font-family:var(--disp);font-weight:600;font-size:19px;margin-bottom:10px;letter-spacing:-.01em}
+  .card p{color:var(--dim);font-size:13.5px;line-height:1.6}
+  .card.bordered{border:1px solid var(--edge);padding:24px;background:var(--surf);
+    clip-path:polygon(0 0,100% 0,100% 100%,18px 100%,0 calc(100% - 18px))}
+
+  /* ---- marquee strip ---- */
+  .strip{border-bottom:1px solid var(--edge);overflow:hidden;background:var(--bg2)}
+  .strip-in{display:flex;gap:60px;padding:20px 0;white-space:nowrap;animation:slide 30s linear infinite;font-family:var(--mono);
+    font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+  .strip-in span{display:flex;align-items:center;gap:60px}
+  .strip-in .d{color:var(--amber)}
+  @keyframes slide{to{transform:translateX(-50%)}}
+
+  /* ---- section scaffold ---- */
+  section{padding:96px 0;border-bottom:1px solid var(--edge)}
+  .sec-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:56px;gap:40px}
+  .sec-head h2{font-family:var(--disp);font-weight:600;font-size:clamp(28px,3vw,42px);line-height:1.08;letter-spacing:-.02em;max-width:620px}
+  .sec-head .idx{font-family:var(--mono);font-size:12px;color:var(--faint);letter-spacing:.1em;white-space:nowrap}
+
+  /* capability grid */
+  .cap-grid{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--edge);border-left:1px solid var(--edge)}
+  .cap{border-right:1px solid var(--edge);border-bottom:1px solid var(--edge);padding:34px 30px;min-height:230px;
+    display:flex;flex-direction:column;transition:background .25s;position:relative}
+  .cap:hover{background:var(--surf)}
+  .cap .num{font-family:var(--mono);font-size:12px;color:var(--amber);margin-bottom:auto}
+  .cap h4{font-family:var(--disp);font-weight:600;font-size:20px;margin:24px 0 10px;letter-spacing:-.01em}
+  .cap p{color:var(--dim);font-size:14px;line-height:1.6}
+  .cap .tick{position:absolute;top:34px;right:30px;width:7px;height:7px;background:var(--edgeLit)}
+  .cap:hover .tick{background:var(--amber);box-shadow:0 0 8px var(--amber)}
+
+  /* how it works — process */
+  .flow{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--edge);border:1px solid var(--edge)}
+  .flow-step{background:var(--bg);padding:30px 26px;position:relative}
+  .flow-step .st{font-family:var(--mono);font-size:12px;color:var(--faint);letter-spacing:.1em}
+  .flow-step .st b{color:var(--amber)}
+  .flow-step h4{font-family:var(--disp);font-weight:600;font-size:17px;margin:18px 0 9px}
+  .flow-step p{color:var(--dim);font-size:13px;line-height:1.55}
+  .flow-step::after{content:"→";position:absolute;right:-12px;top:34px;color:var(--faint);font-family:var(--mono);z-index:2;
+    background:var(--bg);padding:2px}
+  .flow-step:last-child::after{display:none}
+
+  /* contact */
+  .contact{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--edge);background:var(--surf)}
+  .contact-left{padding:54px 48px;border-right:1px solid var(--edge)}
+  .contact-left h2{font-family:var(--disp);font-weight:600;font-size:clamp(28px,3vw,40px);line-height:1.06;letter-spacing:-.02em;margin-bottom:18px}
+  .contact-left p{color:var(--dim);max-width:420px;line-height:1.65}
+  .contact-right{padding:54px 48px;display:flex;flex-direction:column;gap:0}
+  .ask{padding:24px 0;border-bottom:1px solid var(--edge)}
+  .ask:first-child{padding-top:0}
+  .ask:last-child{border-bottom:none;padding-bottom:0}
+  .ask .ak{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--amber);margin-bottom:10px}
+  .ask p{color:var(--ink);font-size:15px;line-height:1.55}
+  .contact-cta{margin-top:36px}
+
+  footer{padding:50px 0 64px}
+  .foot-in{display:flex;align-items:center;justify-content:space-between;gap:30px;flex-wrap:wrap}
+  .foot-in .muted{color:var(--faint);font-size:13px;font-family:var(--mono);letter-spacing:.06em}
+
+  /* contact form */
+  .cform{margin-top:34px;display:flex;flex-direction:column;gap:12px;max-width:460px}
+  .cform-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .cform input,.cform textarea{background:var(--bg);border:1px solid var(--edge);color:var(--ink);
+    font-family:var(--body);font-size:14.5px;padding:13px 15px;outline:none;transition:border-color .18s;resize:vertical;width:100%}
+  .cform input::placeholder,.cform textarea::placeholder{color:var(--faint)}
+  .cform input:focus,.cform textarea:focus{border-color:var(--amber)}
+  .cform-note{font-family:var(--mono);font-size:12px;letter-spacing:.04em;min-height:16px}
+  .cform-note.ok{color:var(--green)}
+  .cform-note.err{color:var(--amber)}
+  @media (max-width:520px){.cform-row{grid-template-columns:1fr}}
+
+  /* founders */
+  .founders{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--edge);border:1px solid var(--edge)}
+  .founder{background:var(--bg);padding:36px 34px;display:flex;flex-direction:column;transition:background .25s;position:relative}
+  .founder:hover{background:var(--surf)}
+  .f-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:34px}
+  .f-mono{font-family:var(--mono);font-size:12px;color:var(--amber)}
+  .f-link{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);transition:color .2s}
+  .f-link .arr{color:var(--amber)}
+  .founder:hover .f-link{color:var(--ink)}
+  .f-mark{width:54px;height:54px;border:1px solid var(--edgeLit);display:grid;place-items:center;font-family:var(--disp);
+    font-weight:600;font-size:18px;letter-spacing:.04em;color:var(--ink);margin-bottom:20px;transition:.25s}
+  .founder:hover .f-mark{border-color:var(--amber);color:var(--amber)}
+  .founder h4{font-family:var(--disp);font-weight:600;font-size:22px;letter-spacing:-.01em;margin-bottom:6px}
+  .f-role{font-family:var(--mono);font-size:12px;letter-spacing:.08em;color:var(--amber);margin-bottom:16px}
+  .founder p{color:var(--dim);font-size:14px;line-height:1.6;max-width:340px}
+
+  /* reveal on scroll */
+  .reveal{opacity:0;transform:translateY(22px);transition:opacity .7s cubic-bezier(.2,.7,.2,1),transform .7s cubic-bezier(.2,.7,.2,1)}
+  .reveal.in{opacity:1;transform:none}
+
+  @media (max-width:1080px){
+    .hero-grid{grid-template-columns:1fr;min-height:auto}
+    .hero-col{border-right:none!important;border-bottom:1px solid var(--edge);padding:0 0 40px!important;margin-bottom:40px}
+    .hero-col:last-child{border-bottom:none}
+    .cap-grid{grid-template-columns:1fr 1fr}
+    .flow{grid-template-columns:1fr 1fr}
+    .flow-step::after{display:none}
+    .contact{grid-template-columns:1fr}
+    .founders{grid-template-columns:1fr}
+    .contact-left{border-right:none;border-bottom:1px solid var(--edge)}
+    .nav-links{display:none}
+  }
+  @media (max-width:640px){
+    .wrap,.nav-in{padding-left:20px;padding-right:20px}
+    .cap-grid{grid-template-columns:1fr}
+    .flow{grid-template-columns:1fr}
+    .sec-head{flex-direction:column;align-items:flex-start;gap:14px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important}
+    .reveal{opacity:1;transform:none}
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-in">
+    <div class="brand"><span class="mark">Æ</span>AELLO<span style="color:var(--faint);font-weight:400">·DYNAMICS</span></div>
+    <div class="nav-links">
+      <a href="#platform">Platform</a>
+      <a href="#how">How it works</a>
+      <a href="#capabilities">Capabilities</a>
+      <a href="#founders">Founders</a>
+      <a href="#contact">Contact</a>
+    </div>
+    <div class="nav-cta">
+      <a href="#contact" class="pill"><span class="dot"></span>Contact</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ============ HERO ============ -->
+<header class="hero">
+  <div class="wrap">
+    <div class="hero-grid">
+
+      <!-- left: thesis -->
+      <div class="hero-col">
+        <div class="tag-row"><span class="bar"></span><span class="eyebrow">Electrical observability for UAVs</span></div>
+        <h1>See the health<br>of every<br>watt in flight.</h1>
+        <p class="hero-sub">Aello reads voltage and current straight from the propulsion bus and infers component health in real time — no changes to your flight-critical hardware.</p>
+        <div class="hero-actions">
+          <button class="btn-primary" onclick="document.getElementById('contact').scrollIntoView()">EXPLORE THE PLATFORM <span style="font-family:var(--mono)">↗</span></button>
+          <a href="#how" class="btn-ghost"><span class="arrow">→</span> How it works</a>
+        </div>
+      </div>
+
+      <!-- center: live signature -->
+      <div class="hero-col">
+        <div class="signature">
+          <span class="sig-label eyebrow">Propulsion channels · live inference</span>
+          <svg id="sig" width="100%" viewBox="0 0 440 440" style="max-width:440px"></svg>
+          <div class="sig-readout">
+            <span>BUS <b>14.8V</b></span>
+            <span>I <b>21.4A</b></span>
+            <span>M3 <span class="live">FAULT ▲</span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- right: trust rail -->
+      <div class="hero-col">
+        <div class="rail">
+          <div class="card bordered">
+            <div class="ico fill"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M8 1v14M1 8h14" stroke="#000" stroke-width="1.6"/></svg></div>
+            <h3>Built for fleets</h3>
+            <p>From single-aircraft test rigs to multi-UAV commercial fleets — Aello rides the propulsion bus on any airframe.</p>
+          </div>
+          <div class="card">
+            <div class="ico"><svg width="15" height="15" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="none" stroke="var(--dim)" stroke-width="1.3"/><path d="M8 4v4l3 2" stroke="var(--dim)" stroke-width="1.3" fill="none"/></svg></div>
+            <h3>Predict, don't react</h3>
+            <p>Early fault detection and in-flight insight turn unplanned failures into scheduled maintenance.</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</header>
+
+<!-- ============ MARQUEE ============ -->
+<div class="strip">
+  <div class="strip-in">
+    <span>Phase-current sensing <span class="d">/</span> Per-motor fault localization <span class="d">/</span> Onboard intelligence <span class="d">/</span> Predictive maintenance <span class="d">/</span> No mission-critical modifications <span class="d">/</span> Real-time health inference <span class="d">/</span></span>
+    <span>Phase-current sensing <span class="d">/</span> Per-motor fault localization <span class="d">/</span> Onboard intelligence <span class="d">/</span> Predictive maintenance <span class="d">/</span> No mission-critical modifications <span class="d">/</span> Real-time health inference <span class="d">/</span></span>
+  </div>
+</div>
+
+<!-- ============ PLATFORM ============ -->
+<section id="platform">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <h2>A sensing layer that sees what telemetry misses.</h2>
+      <span class="idx">[ 01 — PLATFORM ]</span>
+    </div>
+    <p class="reveal" style="color:var(--dim);max-width:760px;font-size:18px;line-height:1.7;margin-bottom:8px">
+      Aello combines high-fidelity voltage and current sensing with onboard intelligence to infer the health of propulsion components — without touching the systems your aircraft depends on to fly. It’s observability for the parts no flight controller reports on.
+    </p>
+  </div>
+</section>
+
+<!-- ============ HOW IT WORKS ============ -->
+<section id="how">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <h2>From raw current to a maintenance decision.</h2>
+      <span class="idx">[ 02 — HOW IT WORKS ]</span>
+    </div>
+    <div class="flow reveal">
+      <div class="flow-step">
+        <div class="st"><b>01</b> · SENSE</div>
+        <h4>Read the bus</h4>
+        <p>High-fidelity voltage and current sensing on the propulsion and power lines — installed alongside, never inside, the flight-critical path.</p>
+      </div>
+      <div class="flow-step">
+        <div class="st"><b>02</b> · INFER</div>
+        <h4>Onboard intelligence</h4>
+        <p>Models running on the aircraft reconstruct propulsion state and score the health of each motor from its electrical signature.</p>
+      </div>
+      <div class="flow-step">
+        <div class="st"><b>03</b> · EXPLAIN</div>
+        <h4>In-flight insight</h4>
+        <p>Early fault detection with a clear reason — which component, how severe, and how confident — surfaced while the aircraft is still flying.</p>
+      </div>
+      <div class="flow-step">
+        <div class="st"><b>04</b> · ACT</div>
+        <h4>Predict & maintain</h4>
+        <p>Degradation trends turn into scheduled maintenance instead of grounded fleets and unplanned failures.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CAPABILITIES ============ -->
+<section id="capabilities">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <h2>What Aello does in the air.</h2>
+      <span class="idx">[ 03 — CAPABILITIES ]</span>
+    </div>
+    <div class="cap-grid reveal">
+      <div class="cap"><span class="tick"></span><div class="num">/ 01</div><h4>Predictive maintenance</h4><p>Catch degradation as a trend, weeks before it becomes a failure, and plan service around it.</p></div>
+      <div class="cap"><span class="tick"></span><div class="num">/ 02</div><h4>Early fault detection</h4><p>Surface inter-turn shorts, bearing wear, and propulsion anomalies from their electrical signatures.</p></div>
+      <div class="cap"><span class="tick"></span><div class="num">/ 03</div><h4>In-flight insight</h4><p>Real-time health scoring while the aircraft flies, not after it lands.</p></div>
+      <div class="cap"><span class="tick"></span><div class="num">/ 04</div><h4>Per-motor localization</h4><p>Pinpoint which motor on which arm is degrading — not just that something is wrong.</p></div>
+      <div class="cap"><span class="tick"></span><div class="num">/ 05</div><h4>No critical modifications</h4><p>Rides the propulsion bus without altering the flight-critical components your aircraft trusts.</p></div>
+      <div class="cap"><span class="tick"></span><div class="num">/ 06</div><h4>Airframe-agnostic</h4><p>Works across UAV platforms and propulsion configurations — discrete or integrated ESCs alike.</p></div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ============ FOUNDERS ============ -->
+<section id="founders">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <h2>Built by the people closest to the problem.</h2>
+      <span class="idx">[ 04 — FOUNDERS ]</span>
+    </div>
+    <div class="founders reveal">
+      <a class="founder" href="https://www.linkedin.com/in/anirudh-chakravarty-kumar-75308a233/" target="_blank" rel="noopener">
+        <div class="f-top">
+          <div class="f-mono">/ 01</div>
+          <div class="f-link">LinkedIn <span class="arr">↗</span></div>
+        </div>
+        <div class="f-mark">AC</div>
+        <h4>Anirudh Chakravarty</h4>
+        <div class="f-role">Co-founder</div>
+        <p>Propulsion ML, sensing architecture, and the onboard intelligence stack.</p>
+      </a>
+      <a class="founder" href="https://www.linkedin.com/in/skandhan-karthikeyan-3a8683249/" target="_blank" rel="noopener">
+        <div class="f-top">
+          <div class="f-mono">/ 02</div>
+          <div class="f-link">LinkedIn <span class="arr">↗</span></div>
+        </div>
+        <div class="f-mark">SK</div>
+        <h4>Skandhan Karthikeyan</h4>
+        <div class="f-role">Co-founder</div>
+        <p>Hardware, platform integration, and validation across airframes.</p>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CONTACT ============ -->
+<section id="contact" style="border-bottom:none">
+  <div class="wrap">
+    <div class="contact reveal">
+      <div class="contact-left">
+        <span class="eyebrow">[ 05 — CONTACT ]</span>
+        <h2 style="margin-top:20px">Let’s validate Aello on your aircraft.</h2>
+        <p>We’re working with commercial drone manufacturers and fleet operators to prove electrical observability across real platforms. If that’s you — or you can open the right door — we’d like to talk.</p>
+        <form id="contactForm" class="cform" action="https://formspree.io/f/mrewprow" method="POST">
+          <div class="cform-row">
+            <input type="text" name="name" placeholder="Name" required />
+            <input type="email" name="email" placeholder="Email" required />
+          </div>
+          <input type="text" name="org" placeholder="Company / fleet (optional)" />
+          <textarea name="message" rows="3" placeholder="How can we help — collaboration, testing access, or something else?" required></textarea>
+          <input type="hidden" name="_subject" value="New Aello Dynamics inquiry" />
+          <button type="submit" class="btn-primary" style="margin-top:4px">SEND MESSAGE <span style="font-family:var(--mono)">↗</span></button>
+          <div class="cform-note" id="formNote"></div>
+        </form>
+      </div>
+      <div class="contact-right">
+        <div class="ask">
+          <div class="ak">Potential collaborations</div>
+          <p>Introductions from commercial drone manufacturers and fleet operators.</p>
+        </div>
+        <div class="ask">
+          <div class="ak">Testing facilities</div>
+          <p>Access to test environments and the chance to validate our system across multiple UAVs.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-in">
+      <div class="brand"><span class="mark">Æ</span>AELLO<span style="color:var(--faint);font-weight:400">·DYNAMICS</span></div>
+      <div class="muted">Electrical observability for UAVs · © 2026</div>
+      <a href="#contact" class="pill"><span class="dot"></span>Contact us</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // ---- hero signature: four propulsion channels feeding a sensing node ----
+  // one channel (M3) carries a fault pulse the others don't.
+  (function(){
+    const svg = document.getElementById('sig');
+    if(!svg) return;
+    const NS = "http://www.w3.org/2000/svg";
+    const cx=220, cy=220;
+    const motors=[{x:120,y:120,id:1},{x:320,y:120,id:2},{x:120,y:320,id:3,fault:true},{x:320,y:320,id:4}];
+
+    // ambient rings
+    [150,180,205].forEach((r,i)=>{
+      const c=document.createElementNS(NS,"circle");
+      c.setAttribute("cx",cx);c.setAttribute("cy",cy);c.setAttribute("r",r);
+      c.setAttribute("fill","none");c.setAttribute("stroke","#1E2630");
+      c.setAttribute("stroke-width","1");
+      if(i===1)c.setAttribute("stroke-dasharray","2 6");
+      svg.appendChild(c);
+    });
+    // rotating tick ring
+    const ring=document.createElementNS(NS,"g");
+    for(let i=0;i<60;i++){
+      const a=(i/60)*2*Math.PI, long=i%5===0;
+      const l=document.createElementNS(NS,"line");
+      l.setAttribute("x1",cx+205*Math.cos(a));l.setAttribute("y1",cy+205*Math.sin(a));
+      l.setAttribute("x2",cx+(long?214:210)*Math.cos(a));l.setAttribute("y2",cy+(long?214:210)*Math.sin(a));
+      l.setAttribute("stroke","#2E3946");l.setAttribute("stroke-width",long?1.2:0.6);
+      ring.appendChild(l);
+    }
+    ring.style.transformOrigin="220px 220px";
+    ring.style.animation="spin 80s linear infinite";
+    svg.appendChild(ring);
+
+    // arms + flowing current
+    motors.forEach(m=>{
+      const arm=document.createElementNS(NS,"line");
+      arm.setAttribute("x1",cx);arm.setAttribute("y1",cy);
+      arm.setAttribute("x2",m.x);arm.setAttribute("y2",m.y);
+      arm.setAttribute("stroke","#1E2630");arm.setAttribute("stroke-width","6");
+      arm.setAttribute("stroke-linecap","round");
+      svg.appendChild(arm);
+
+      const flow=document.createElementNS(NS,"line");
+      flow.setAttribute("x1",cx);flow.setAttribute("y1",cy);
+      flow.setAttribute("x2",m.x);flow.setAttribute("y2",m.y);
+      flow.setAttribute("stroke",m.fault?"#FF5A2C":"#48C9E8");
+      flow.setAttribute("stroke-width","2");flow.setAttribute("stroke-linecap","round");
+      flow.setAttribute("stroke-dasharray","6 14");
+      flow.style.filter=`drop-shadow(0 0 3px ${m.fault?'#FF5A2C':'#48C9E8'})`;
+      const dur=m.fault?0.9:1.6;
+      flow.innerHTML=`<animate attributeName="stroke-dashoffset" from="0" to="-20" dur="${dur}s" repeatCount="indefinite"/>`;
+      svg.appendChild(flow);
+    });
+
+    // motor nodes
+    motors.forEach(m=>{
+      const g=document.createElementNS(NS,"g");
+      const col=m.fault?"#FF5A2C":"#48C9E8";
+      const node=document.createElementNS(NS,"circle");
+      node.setAttribute("cx",m.x);node.setAttribute("cy",m.y);node.setAttribute("r","26");
+      node.setAttribute("fill","#0B0E13");node.setAttribute("stroke",col);node.setAttribute("stroke-width","1.4");
+      node.style.filter=`drop-shadow(0 0 ${m.fault?8:3}px ${col})`;
+      g.appendChild(node);
+      const core=document.createElementNS(NS,"circle");
+      core.setAttribute("cx",m.x);core.setAttribute("cy",m.y);core.setAttribute("r",m.fault?6:4);
+      core.setAttribute("fill",col);
+      if(m.fault){core.innerHTML=`<animate attributeName="opacity" values="1;0.3;1" dur="0.9s" repeatCount="indefinite"/>`;}
+      g.appendChild(core);
+      const lbl=document.createElementNS(NS,"text");
+      lbl.setAttribute("x",m.x);lbl.setAttribute("y",m.y-34);lbl.setAttribute("text-anchor","middle");
+      lbl.setAttribute("fill",m.fault?"#FF5A2C":"#8A99A8");
+      lbl.setAttribute("font-family","'Share Tech Mono',monospace");lbl.setAttribute("font-size","11");
+      lbl.textContent="M"+m.id;
+      g.appendChild(lbl);
+      svg.appendChild(g);
+    });
+
+    // central sensing node
+    const hub=document.createElementNS(NS,"circle");
+    hub.setAttribute("cx",cx);hub.setAttribute("cy",cy);hub.setAttribute("r","30");
+    hub.setAttribute("fill","#0B0E13");hub.setAttribute("stroke","#2E3946");hub.setAttribute("stroke-width","1");
+    svg.appendChild(hub);
+    const tri=document.createElementNS(NS,"polygon");
+    tri.setAttribute("points","220,206 233,228 207,228");
+    tri.setAttribute("fill","none");tri.setAttribute("stroke","#48C9E8");tri.setAttribute("stroke-width","1.4");
+    tri.style.filter="drop-shadow(0 0 5px #48C9E8)";
+    tri.style.transformOrigin="220px 220px";
+    tri.style.animation="spin 14s linear infinite";
+    svg.appendChild(tri);
+    const dot=document.createElementNS(NS,"circle");
+    dot.setAttribute("cx",cx);dot.setAttribute("cy",cy);dot.setAttribute("r","5");
+    dot.setAttribute("fill","#48C9E8");dot.style.filter="drop-shadow(0 0 8px #48C9E8)";
+    svg.appendChild(dot);
+
+    const style=document.createElement("style");
+    style.textContent="@keyframes spin{to{transform:rotate(360deg)}}";
+    document.head.appendChild(style);
+  })();
+
+  // ---- contact form (Formspree async submit) ----
+  (function(){
+    const form=document.getElementById('contactForm');
+    if(!form) return;
+    const note=document.getElementById('formNote');
+    form.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      note.className='cform-note'; note.textContent='Sending…';
+      try{
+        const res=await fetch(form.action,{method:'POST',body:new FormData(form),headers:{'Accept':'application/json'}});
+        if(res.ok){ form.reset(); note.className='cform-note ok'; note.textContent='Sent. We\'ll be in touch shortly.'; }
+        else{ note.className='cform-note err'; note.textContent='Something went wrong — email aellodynamics@gmail.com directly.'; }
+      }catch(err){ note.className='cform-note err'; note.textContent='Network error — email aellodynamics@gmail.com directly.'; }
+    });
+  })();
+
+  // ---- scroll reveal ----
+  const io=new IntersectionObserver((es)=>{es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}})},{threshold:0.12});
+  document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+</script>
+</body>
+</html>
