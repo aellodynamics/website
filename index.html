@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Aello Dynamics — Electrical Observability for UAVs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Anton&family=Crimson+Pro:ital,wght@0,300;0,400;1,300&family=Space+Grotesk:wght@400;500;600;700&family=Inter+Tight:wght@400;500;600&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+<style>
+/* ── reset ─────────────────────────────────────────────────── */
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:#080A0E;color:#E8EDF3;font-family:'Inter Tight',system-ui,sans-serif;font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+::selection{background:#FF5A2C;color:#000}
+
+/* ── design tokens ──────────────────────────────────────────── */
+:root{
+  --bg:#080A0E; --bg2:#0B0E13; --surf:#0E1218; --surfLit:#141A22;
+  --edge:#1E2630; --edgeLit:#2E3946; --rule:#161C24;
+  --ink:#E8EDF3; --dim:#8A99A8; --faint:#54616F;
+  --amber:#FF5A2C; --amberSoft:rgba(255,90,44,0.12);
+  --green:#3DF5A0; --cyan:#48C9E8;
+  /* batman palette folded in */
+  --red:#C0001A; --red-glow:rgba(192,0,26,0.65); --red-glow2:rgba(192,0,26,0.35);
+  --gold:#C9A44A;
+  --disp:'Space Grotesk',sans-serif;
+  --body:'Inter Tight',system-ui,sans-serif;
+  --mono:'Share Tech Mono',ui-monospace,monospace;
+}
+
+/* ── entrance animations ──────────────────────────────────── */
+@keyframes fadeUp{from{opacity:0;transform:translateY(50px)}to{opacity:1;transform:none}}
+@keyframes fadeDown{from{opacity:0;transform:translateY(-80px)}to{opacity:1;transform:none}}
+@keyframes slideLeft{from{opacity:0;transform:translateX(-60px)}to{opacity:1;transform:none}}
+@keyframes slideRight{from{opacity:0;transform:translateX(60px)}to{opacity:1;transform:none}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes slide{to{transform:translateX(-50%)}}
+
+/* ════════════════════════════════════════════════════════════
+   HERO SECTION — full-viewport canvas reveal
+   (Batman mechanic: two.png behind, one.png revealed by cursor torch)
+══════════════════════════════════════════════════════════════ */
+.hero{
+  height:100vh;position:relative;overflow:hidden;
+}
+/* gold/amber top accent line — Aello brand version of Batman's red/gold bar */
+.hero::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,transparent,var(--gold),var(--amber),var(--gold),transparent);
+  z-index:10;
+}
+.hero-canvas{
+  position:absolute;inset:0;width:100%;height:100%;display:block;z-index:0;
+}
+
+/* ── NAV ─────────────────────────────────────────────────── */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  backdrop-filter:blur(14px);background:rgba(8,10,14,0.72);
+  border-bottom:1px solid rgba(201,164,74,0.25);
+  animation:fadeDown .8s cubic-bezier(.2,.7,.2,1) both;
+}
+.nav-in{
+  max-width:1320px;margin:0 auto;padding:0 60px;height:72px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.brand{
+  display:flex;align-items:center;gap:11px;
+  font-family:'Bebas Neue',cursive;font-size:22px;letter-spacing:.1em;color:#fff;
+}
+.brand .mark{
+  width:30px;height:30px;border:1.5px solid var(--ink);border-radius:50%;
+  display:grid;place-items:center;font-size:14px;position:relative;
+}
+.brand .mark::after{
+  content:'';position:absolute;width:5px;height:5px;
+  background:var(--amber);border-radius:50%;box-shadow:0 0 8px var(--amber);
+}
+.brand span.gold{color:var(--gold)}
+.nav-links{
+  display:flex;gap:36px;list-style:none;
+  font-family:'Bebas Neue',cursive;font-size:15px;letter-spacing:.18em;text-transform:uppercase;
+}
+.nav-links li{
+  color:rgba(255,255,255,.7);cursor:pointer;position:relative;transition:color .3s;
+}
+.nav-links li::after{
+  content:'';position:absolute;left:0;bottom:-6px;width:0;height:1.5px;
+  background:var(--gold);transition:width .35s;
+}
+.nav-links li:hover{color:#fff}
+.nav-links li:hover::after{width:100%}
+.nav-cta .pill{
+  border:1px solid var(--edgeLit);border-radius:40px;padding:9px 18px;
+  font-size:13px;display:flex;align-items:center;gap:8px;
+  transition:.18s;cursor:pointer;font-family:var(--body);
+}
+.nav-cta .pill:hover{border-color:var(--amber);color:var(--ink)}
+.nav-cta .pill .dot{width:6px;height:6px;border-radius:50%;background:var(--amber);box-shadow:0 0 8px var(--amber)}
+
+/* ── HERO CONTENT (above canvas) ─────────────────────────── */
+.hero-content{
+  position:absolute;inset:0;z-index:10;pointer-events:none;
+}
+.hero-content .left,
+.hero-content .right{pointer-events:all}
+
+/* LEFT panel */
+.hero-left{
+  position:absolute;bottom:60px;left:60px;width:340px;
+  display:flex;flex-direction:column;gap:22px;
+  animation:slideLeft .9s .3s cubic-bezier(.2,.7,.2,1) both;
+}
+.eyebrow-bat{
+  display:inline-block;font-family:'Bebas Neue',cursive;font-size:13px;
+  letter-spacing:.35em;color:var(--gold);text-transform:uppercase;
+  padding-left:1.4rem;position:relative;
+}
+.eyebrow-bat::before{
+  content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);
+  width:1rem;height:1.5px;background:var(--gold);
+}
+.hero-h1{
+  font-family:'Anton',sans-serif;font-size:clamp(52px,6vw,80px);
+  color:#fff;text-transform:uppercase;line-height:1.05;letter-spacing:-.01em;
+  text-shadow:3px 3px 0 #7A000F, 0 0 18px var(--red-glow), 0 0 40px var(--red-glow2);
+}
+.hero-sub-txt{
+  font-family:'Crimson Pro',Georgia,serif;font-size:17px;
+  font-style:italic;font-weight:300;line-height:1.75;
+  color:rgba(255,255,255,.78);letter-spacing:.01em;
+}
+.btn-primary{
+  display:inline-flex;align-items:center;gap:12px;
+  background:var(--ink);color:#000;font-family:'Bebas Neue',cursive;
+  font-size:17px;letter-spacing:.22em;text-transform:uppercase;
+  padding:15px 24px;border:none;cursor:pointer;
+  clip-path:polygon(0 0,100% 0,100% 70%,calc(100% - 14px) 100%,0 100%);
+  position:relative;overflow:hidden;isolation:isolate;transition:.18s;
+}
+.btn-primary::after{
+  content:'';position:absolute;inset:0;background:var(--amber);
+  transform:translateX(-105%) skewX(-6deg);
+  transition:transform .38s cubic-bezier(.4,0,.2,1);z-index:-1;
+}
+.btn-primary:hover{color:#000}
+.btn-primary:hover::after{transform:translateX(0) skewX(-6deg)}
+
+/* RIGHT panel */
+.hero-right{
+  position:absolute;bottom:100px;right:0;
+  display:flex;flex-direction:column;gap:22px;
+  animation:slideRight .9s .5s cubic-bezier(.2,.7,.2,1) both;
+}
+.hero-right::before{
+  content:'';display:block;width:48px;height:2px;
+  background:var(--gold);margin-bottom:-10px;
+}
+.eyebrow-bat.right-eyebrow{color:#ff4455}
+.eyebrow-bat.right-eyebrow::before{background:#ff4455}
+.hero-right .hero-h1{font-size:clamp(40px,4.5vw,62px);width:480px}
+.hero-right-txt{
+  font-family:'Crimson Pro',Georgia,serif;font-size:19px;
+  font-style:italic;font-weight:300;width:400px;
+  line-height:1.75;color:rgba(255,255,255,.72);letter-spacing:.01em;
+}
+/* hero bottom readout */
+.sig-readout{
+  position:absolute;bottom:24px;left:50%;transform:translateX(-50%);
+  display:flex;gap:26px;font-family:var(--mono);font-size:11px;
+  color:var(--faint);letter-spacing:.08em;z-index:12;pointer-events:none;
+}
+.sig-readout b{color:var(--ink);font-weight:400}
+.sig-readout .live{color:var(--amber)}
+
+/* ════════════════════════════════════════════════════════════
+   SECTIONS BELOW HERO — Aello content, same editorial grid
+══════════════════════════════════════════════════════════════ */
+.wrap{max-width:1320px;margin:0 auto;padding:0 32px}
+
+/* marquee */
+.strip{border-bottom:1px solid var(--edge);overflow:hidden;background:var(--bg2);border-top:1px solid var(--edge)}
+.strip-in{display:flex;gap:60px;padding:20px 0;white-space:nowrap;animation:slide 30s linear infinite;
+  font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.strip-in span{display:flex;align-items:center;gap:60px}
+.strip-in .d{color:var(--amber)}
+
+section{padding:96px 0;border-bottom:1px solid var(--edge)}
+.sec-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:56px;gap:40px}
+.sec-head h2{font-family:var(--disp);font-weight:600;font-size:clamp(28px,3vw,42px);line-height:1.08;letter-spacing:-.02em;max-width:620px}
+.sec-head .idx{font-family:var(--mono);font-size:12px;color:var(--faint);letter-spacing:.1em;white-space:nowrap}
+
+/* capability grid */
+.cap-grid{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--edge);border-left:1px solid var(--edge)}
+.cap{border-right:1px solid var(--edge);border-bottom:1px solid var(--edge);padding:34px 30px;min-height:230px;
+  display:flex;flex-direction:column;transition:background .25s;position:relative}
+.cap:hover{background:var(--surf)}
+.cap .num{font-family:var(--mono);font-size:12px;color:var(--amber);margin-bottom:auto}
+.cap h4{font-family:var(--disp);font-weight:600;font-size:20px;margin:24px 0 10px;letter-spacing:-.01em}
+.cap p{color:var(--dim);font-size:14px;line-height:1.6}
+.cap .tick{position:absolute;top:34px;right:30px;width:7px;height:7px;background:var(--edgeLit)}
+.cap:hover .tick{background:var(--amber);box-shadow:0 0 8px var(--amber)}
+
+/* how it works */
+.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--edge);border:1px solid var(--edge)}
+.flow-step{background:var(--bg);padding:30px 26px;position:relative}
+.flow-step .st{font-family:var(--mono);font-size:12px;color:var(--faint);letter-spacing:.1em}
+.flow-step .st b{color:var(--amber)}
+.flow-step h4{font-family:var(--disp);font-weight:600;font-size:17px;margin:18px 0 9px}
+.flow-step p{color:var(--dim);font-size:13px;line-height:1.55}
+.flow-step::after{content:'→';position:absolute;right:-12px;top:34px;color:var(--faint);font-family:var(--mono);z-index:2;background:var(--bg);padding:2px}
+.flow-step:last-child::after{display:none}
+
+/* founders */
+.founders{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--edge);border:1px solid var(--edge)}
+.founder{background:var(--bg);padding:36px 34px;display:flex;flex-direction:column;transition:background .25s;position:relative}
+.founder:hover{background:var(--surf)}
+.f-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:34px}
+.f-mono{font-family:var(--mono);font-size:12px;color:var(--amber)}
+.f-link{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);transition:color .2s}
+.f-link .arr{color:var(--amber)}
+.founder:hover .f-link{color:var(--ink)}
+.f-mark{width:54px;height:54px;border:1px solid var(--edgeLit);display:grid;place-items:center;
+  font-family:var(--disp);font-weight:600;font-size:18px;letter-spacing:.04em;color:var(--ink);margin-bottom:20px;transition:.25s}
+.founder:hover .f-mark{border-color:var(--amber);color:var(--amber)}
+.founder h4{font-family:var(--disp);font-weight:600;font-size:22px;letter-spacing:-.01em;margin-bottom:6px}
+.f-role{font-family:var(--mono);font-size:12px;letter-spacing:.08em;color:var(--amber);margin-bottom:16px}
+.founder p{color:var(--dim);font-size:14px;line-height:1.6;max-width:340px}
+
+/* contact */
+.contact{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--edge);background:var(--surf)}
+.contact-left{padding:54px 48px;border-right:1px solid var(--edge)}
+.contact-left h2{font-family:var(--disp);font-weight:600;font-size:clamp(28px,3vw,40px);line-height:1.06;letter-spacing:-.02em;margin-bottom:18px}
+.contact-left p{color:var(--dim);max-width:420px;line-height:1.65}
+.contact-right{padding:54px 48px;display:flex;flex-direction:column;gap:0}
+.ask{padding:24px 0;border-bottom:1px solid var(--edge)}
+.ask:first-child{padding-top:0}
+.ask:last-child{border-bottom:none;padding-bottom:0}
+.ask .ak{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--amber);margin-bottom:10px}
+.ask p{color:var(--ink);font-size:15px;line-height:1.55}
+
+/* form */
+.cform{margin-top:34px;display:flex;flex-direction:column;gap:12px;max-width:460px}
+.cform-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.cform input,.cform textarea{background:var(--bg);border:1px solid var(--edge);color:var(--ink);
+  font-family:var(--body);font-size:14.5px;padding:13px 15px;outline:none;transition:border-color .18s;resize:vertical;width:100%}
+.cform input::placeholder,.cform textarea::placeholder{color:var(--faint)}
+.cform input:focus,.cform textarea:focus{border-color:var(--amber)}
+.cform-note{font-family:var(--mono);font-size:12px;letter-spacing:.04em;min-height:16px}
+.cform-note.ok{color:var(--green)}
+.cform-note.err{color:var(--amber)}
+
+footer{padding:50px 0 64px}
+.foot-in{display:flex;align-items:center;justify-content:space-between;gap:30px;flex-wrap:wrap}
+.foot-in .muted{color:var(--faint);font-size:13px;font-family:var(--mono);letter-spacing:.06em}
+
+/* reveal on scroll */
+.reveal{opacity:0;transform:translateY(22px);transition:opacity .7s cubic-bezier(.2,.7,.2,1),transform .7s cubic-bezier(.2,.7,.2,1)}
+.reveal.in{opacity:1;transform:none}
+
+/* ── responsive ─────────────────────────── */
+@media(max-width:1080px){
+  .hero-right{right:20px}
+  .hero-right .hero-h1{width:380px}
+  .hero-right-txt{width:340px}
+  .cap-grid{grid-template-columns:1fr 1fr}
+  .flow{grid-template-columns:1fr 1fr}
+  .flow-step::after{display:none}
+  .contact{grid-template-columns:1fr}
+  .founders{grid-template-columns:1fr}
+  .contact-left{border-right:none;border-bottom:1px solid var(--edge)}
+  .nav-links{display:none}
+}
+@media(max-width:700px){
+  .hero-left{left:24px;width:calc(100vw - 48px)}
+  .hero-right{display:none}
+  .cap-grid{grid-template-columns:1fr}
+  .flow{grid-template-columns:1fr}
+  .sec-head{flex-direction:column;align-items:flex-start;gap:14px}
+  .wrap,.nav-in{padding-left:20px;padding-right:20px}
+}
+@media(prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important}
+  .reveal{opacity:1;transform:none}
+  .hero-left,.hero-right,nav{animation:none}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════ NAV ═══════════════════════════ -->
+<nav>
+  <div class="nav-in">
+    <div class="brand">
+      <span class="mark">Æ</span>AELLO<span class="gold" style="font-weight:400;opacity:.6">·DYNAMICS</span>
+    </div>
+    <ul class="nav-links">
+      <li onclick="document.getElementById('platform').scrollIntoView({behavior:'smooth'})">Platform</li>
+      <li onclick="document.getElementById('how').scrollIntoView({behavior:'smooth'})">How It Works</li>
+      <li onclick="document.getElementById('founders').scrollIntoView({behavior:'smooth'})">Founders</li>
+      <li onclick="document.getElementById('contact').scrollIntoView({behavior:'smooth'})">Contact</li>
+    </ul>
+    <div class="nav-cta">
+      <a href="#contact" class="pill"><span class="dot"></span>Contact</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════ HERO ══════════════════════════ -->
+<div class="hero" id="heroEl">
+  <canvas id="heroCanvas" class="hero-canvas"></canvas>
+
+  <div class="hero-content">
+
+    <!-- LEFT -->
+    <div class="hero-left">
+      <span class="eyebrow-bat">Electrical Observability for UAVs</span>
+      <h1 class="hero-h1">See every<br>watt.<br>In flight.</h1>
+      <p class="hero-sub-txt">
+        Aello fuses high-fidelity propulsion-current sensing with onboard intelligence
+        to infer motor health in real time — no mission-critical modifications required.
+      </p>
+      <button class="btn-primary" onclick="document.getElementById('contact').scrollIntoView({behavior:'smooth'})">
+        Explore the Platform &nbsp;<span style="font-family:var(--mono)">↗</span>
+      </button>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="hero-right">
+      <span class="eyebrow-bat right-eyebrow">Predict. Don't React.</span>
+      <h1 class="hero-h1">Fault<br>Localised.<br>Before it fails.</h1>
+      <p class="hero-right-txt">
+        Per-motor fault detection and explainable health scoring turn electrical
+        signatures into operator decisions — grounded in physics, readable by anyone.
+      </p>
+    </div>
+
+    <!-- bottom readout -->
+    <div class="sig-readout">
+      <span>BUS <b>14.8V</b></span>
+      <span>I <b>21.4A</b></span>
+      <span>M3 <span class="live">FAULT ▲</span></span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ MARQUEE ════════════════ -->
+<div class="strip">
+  <div class="strip-in">
+    <span>Phase-current sensing <span class="d">/</span> Per-motor fault localisation <span class="d">/</span> Onboard intelligence <span class="d">/</span> Predictive maintenance <span class="d">/</span> No mission-critical modifications <span class="d">/</span> Real-time health inference <span class="d">/</span></span>
+    <span>Phase-current sensing <span class="d">/</span> Per-motor fault localisation <span class="d">/</span> Onboard intelligence <span class="d">/</span> Predictive maintenance <span class="d">/</span> No mission-critical modifications <span class="d">/</span> Real-time health inference <span class="d">/</span></span>
+  </div>
+</div>
+
+<!-- ═══════════════ PLATFORM ═══════════════ -->
+<section id="platform">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <h2>Every propulsion channel.<br>Observed. Explained. Acted on.</h2>
+      <span class="idx">[ PLATFORM ]</span>
+    </div>
+    <div class="cap-grid reveal">
+      <div class="cap">
+        <span class="num">/ 01</span>
+        <div class="tick"></div>
+        <h4>Electrical Sensing</h4>
+        <p>High-fidelity voltage and current sensing rides the propulsion bus on any BLDC or brushed airframe — no flight-controller modification, no mission interruption.</p>
+      </div>
+      <div class="cap">
+        <span class="num">/ 02</span>
+        <div class="tick"></div>
+        <h4>Onboard Intelligence</h4>
+        <p>A physics-constrained world model and lightweight 1D-CNN classifier run on dedicated edge hardware, producing a health embedding and fault probability in real time.</p>
+      </div>
+      <div class="cap">
+        <span class="num">/ 03</span>
+        <div class="tick"></div>
+        <h4>Explainable xAI</h4>
+        <p>Every alert traces to a causal physics chain or an empirical trend an operator can read. No black-box verdicts. OBSERVE / WARN / INVESTIGATE / GROUND — with reasons.</p>
+      </div>
+      <div class="cap">
+        <span class="num">/ 04</span>
+        <div class="tick"></div>
+        <h4>Predictive Maintenance</h4>
+        <p>Cross-session EMA health trending surfaces wear that accumulates invisibly across flight hours — flagging degradation before it appears in any single reading.</p>
+      </div>
+      <div class="cap">
+        <span class="num">/ 05</span>
+        <div class="tick"></div>
+        <h4>Per-Motor Localisation</h4>
+        <p>Symmetrical-component analysis and cross-motor current comparison isolate the faulted motor from its neighbours — no ambiguity across the quadrotor X-frame.</p>
+      </div>
+      <div class="cap">
+        <span class="num">/ 06</span>
+        <div class="tick"></div>
+        <h4>Fleet-Ready Architecture</h4>
+        <p>Health embeddings are logged continuously, building a per-motor service history that feeds fleet-level RUL projections and drives data-driven maintenance scheduling.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ HOW IT WORKS ════════════ -->
+<section id="how">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <h2>From raw current to operator decision — in one pipeline.</h2>
+      <span class="idx">[ HOW IT WORKS ]</span>
+    </div>
+    <div class="flow reveal">
+      <div class="flow-step">
+        <div class="st"><b>01</b> / SENSE</div>
+        <h4>Current Signatures</h4>
+        <p>High-fidelity sensors sample motor current at up to 50 kSPS per channel, capturing the full ripple, envelope, and load-curve information with no analog anti-alias gap.</p>
+      </div>
+      <div class="flow-step">
+        <div class="st"><b>02</b> / INFER</div>
+        <h4>World Model</h4>
+        <p>A TCN autoencoder trained on real healthy flight data reconstructs expected current behaviour. Deviation from its physics-constrained latent space is the anomaly score.</p>
+      </div>
+      <div class="flow-step">
+        <div class="st"><b>03</b> / EXPLAIN</div>
+        <h4>xAI Attribution</h4>
+        <p>A deterministic decision function chains the anomaly score, classifier output, and physics features into a human-readable verdict with per-feature attribution.</p>
+      </div>
+      <div class="flow-step">
+        <div class="st"><b>04</b> / ACT</div>
+        <h4>Operator Action</h4>
+        <p>A graded action (OBSERVE / WARN / INVESTIGATE / GROUND) reaches the operator before the fault escalates — turning reactive maintenance into a scheduled event.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ FOUNDERS ════════════════ -->
+<section id="founders">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <h2>Built by the people closest to the problem.</h2>
+      <span class="idx">[ FOUNDERS ]</span>
+    </div>
+    <div class="founders reveal">
+      <a class="founder" href="https://www.linkedin.com/in/anirudh-chakravarty-kumar-75308a233/" target="_blank" rel="noopener">
+        <div class="f-top">
+          <div class="f-mono">/ 01</div>
+          <div class="f-link">LinkedIn <span class="arr">↗</span></div>
+        </div>
+        <div class="f-mark">AC</div>
+        <h4>Anirudh Chakravarty Kumar</h4>
+        <div class="f-role">Co-Founder</div>
+        <p>Penn MSE · Machine learning, OCR pipelines, and onboard AI for UAV propulsion health. INTERSPEECH 2024. Patent holder. Formerly IDfy — 220M+ record ML pipelines.</p>
+      </a>
+      <a class="founder" href="https://www.linkedin.com/in/skandhan-karthikeyan-3a8683249/" target="_blank" rel="noopener">
+        <div class="f-top">
+          <div class="f-mono">/ 02</div>
+          <div class="f-link">LinkedIn <span class="arr">↗</span></div>
+        </div>
+        <div class="f-mark">SK</div>
+        <h4>Skandhan Karthikeyan</h4>
+        <div class="f-role">Co-Founder</div>
+        <p>Robotics and embedded systems, sim-to-real transfer, and UAV control. Key architect of Aello's sensor integration and real-time inference stack.</p>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ CONTACT ══════════════════ -->
+<section id="contact" style="border-bottom:none">
+  <div class="wrap">
+    <div class="contact reveal">
+      <div class="contact-left">
+        <span style="font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--faint)">[ CONTACT ]</span>
+        <h2 style="margin-top:20px">Let's validate Aello on your aircraft.</h2>
+        <p>We're working with commercial drone manufacturers and fleet operators to understand electrical observability across real platforms. If that's you, or you can open the right door, we'd be excited to talk.</p>
+        <form id="contactForm" class="cform" action="https://formspree.io/f/mrewprow" method="POST">
+          <div class="cform-row">
+            <input type="text" name="name" placeholder="Name" required/>
+            <input type="email" name="email" placeholder="Email" required/>
+          </div>
+          <input type="text" name="org" placeholder="Company / fleet (optional)"/>
+          <textarea name="message" rows="3" placeholder="Collaboration, testing access, or something else?" required></textarea>
+          <input type="hidden" name="_subject" value="New Aello Dynamics inquiry"/>
+          <button type="submit" class="btn-primary" style="margin-top:4px">
+            Send Message <span style="font-family:var(--mono)">↗</span>
+          </button>
+          <div class="cform-note" id="formNote"></div>
+        </form>
+      </div>
+      <div class="contact-right">
+        <div class="ask">
+          <div class="ak">Building a fleet?</div>
+          <p>We want to understand your maintenance workflow, failure modes, and what unplanned downtime actually costs you.</p>
+        </div>
+        <div class="ask">
+          <div class="ak">Making hardware?</div>
+          <p>If you're building eVTOL, delivery, or inspection platforms, Aello's observability layer slots in at the propulsion bus — no airframe changes.</p>
+        </div>
+        <div class="ask">
+          <div class="ak">Investing?</div>
+          <p>We're demonstrating a non-circular, hardware-validated anomaly detection and explainability system on real flight data. Happy to walk you through the methodology.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ FOOTER ═══════════════════ -->
+<footer>
+  <div class="wrap">
+    <div class="foot-in">
+      <div class="brand"><span class="mark">Æ</span>AELLO<span class="gold" style="font-weight:400;opacity:.6">·DYNAMICS</span></div>
+      <div class="muted">Electrical observability for UAVs &nbsp;·&nbsp; © 2026 Aello Dynamics</div>
+      <a href="#contact" class="pill"><span class="dot"></span>Contact us</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ════════════════════════════════════════════════════════════════
+// CANVAS TORCH EFFECT — Batman mechanic, Aello images
+// two.png = dark base (Aello drone, always visible)
+// one.png = lit image (Aello + internals, revealed by cursor torch)
+// ════════════════════════════════════════════════════════════════
+(function(){
+  const hero   = document.getElementById('heroEl');
+  const canvas = document.getElementById('heroCanvas');
+  const ctx    = canvas.getContext('2d');
+
+  const TRAIL_LENGTH = 65;
+  const HEAD_RADIUS  = 200;
+
+  const bottom = new Image();
+  const top    = new Image();
+  bottom.src = 'two.png';   // dark drone, always visible
+  top.src    = 'one.png';   // lit drone + internals, revealed by cursor
+
+  const mouseRef  = { x: -9999, y: -9999 };
+  const smoothRef = { x: -9999, y: -9999 };
+  let trail = [];
+
+  const resize = () => {
+    canvas.width  = hero.offsetWidth;
+    canvas.height = hero.offsetHeight;
+  };
+  resize();
+  window.addEventListener('resize', resize);
+
+  hero.addEventListener('mousemove', (e) => {
+    const rect = hero.getBoundingClientRect();
+    mouseRef.x = e.clientX - rect.left;
+    mouseRef.y = e.clientY - rect.top;
+  });
+
+  // touch support
+  hero.addEventListener('touchmove', (e) => {
+    const rect = hero.getBoundingClientRect();
+    const t = e.touches[0];
+    mouseRef.x = t.clientX - rect.left;
+    mouseRef.y = t.clientY - rect.top;
+  }, { passive: true });
+
+  let rafId;
+  const draw = () => {
+    const { width, height } = canvas;
+
+    smoothRef.x += (mouseRef.x - smoothRef.x) * 0.13;
+    smoothRef.y += (mouseRef.y - smoothRef.y) * 0.13;
+
+    trail.unshift({ x: smoothRef.x, y: smoothRef.y });
+    if (trail.length > TRAIL_LENGTH) trail.length = TRAIL_LENGTH;
+
+    ctx.clearRect(0, 0, width, height);
+    ctx.drawImage(bottom, 0, 0, width, height);
+
+    const offscreen = document.createElement('canvas');
+    offscreen.width  = width;
+    offscreen.height = height;
+    const off = offscreen.getContext('2d');
+
+    for (let i = 0; i < trail.length; i++) {
+      const t     = 1 - i / trail.length;
+      const r     = HEAD_RADIUS * (0.25 + 0.75 * t);
+      const alpha = Math.pow(t, 1.5);
+      off.beginPath();
+      off.arc(trail[i].x, trail[i].y, r, 0, Math.PI * 2);
+      off.fillStyle = `rgba(0,0,0,${alpha})`;
+      off.fill();
+    }
+
+    off.globalCompositeOperation = 'source-in';
+    off.drawImage(top, 0, 0, width, height);
+    ctx.drawImage(offscreen, 0, 0);
+
+    // amber/gold glow at cursor head (Aello brand colour instead of Batman gold)
+    if (trail.length > 0) {
+      const head = trail[0];
+      const glow = ctx.createRadialGradient(
+        head.x, head.y, 0,
+        head.x, head.y, HEAD_RADIUS * 1.5
+      );
+      glow.addColorStop(0,   'rgba(255, 90, 44, 0.18)');   // --amber
+      glow.addColorStop(0.4, 'rgba(201,164,74,0.10)');     // --gold
+      glow.addColorStop(1,   'rgba(0,0,0,0)');
+      ctx.beginPath();
+      ctx.arc(head.x, head.y, HEAD_RADIUS * 1.5, 0, Math.PI * 2);
+      ctx.fillStyle = glow;
+      ctx.fill();
+    }
+
+    rafId = requestAnimationFrame(draw);
+  };
+
+  let loaded = 0;
+  const onLoad = () => { if (++loaded === 2) draw(); };
+  bottom.onload = onLoad;
+  top.onload    = onLoad;
+})();
+
+// ════════════════════════════════════════════════════════════════
+// CONTACT FORM — Formspree async
+// ════════════════════════════════════════════════════════════════
+(function(){
+  const form = document.getElementById('contactForm');
+  const note = document.getElementById('formNote');
+  if (!form) return;
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    note.className = 'cform-note'; note.textContent = 'Sending…';
+    try {
+      const res = await fetch(form.action, {
+        method: 'POST',
+        body: new FormData(form),
+        headers: { 'Accept': 'application/json' }
+      });
+      if (res.ok) {
+        form.reset();
+        note.className = 'cform-note ok';
+        note.textContent = 'Sent. We\'ll be in touch shortly.';
+      } else {
+        note.className = 'cform-note err';
+        note.textContent = 'Something went wrong — email aellodynamics@gmail.com directly.';
+      }
+    } catch {
+      note.className = 'cform-note err';
+      note.textContent = 'Network error — email aellodynamics@gmail.com directly.';
+    }
+  });
+})();
+
+// ════════════════════════════════════════════════════════════════
+// SCROLL REVEAL
+// ════════════════════════════════════════════════════════════════
+const io = new IntersectionObserver(
+  (es) => { es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }); },
+  { threshold: 0.12 }
+);
+document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script>
+
+</body>
+</html>
